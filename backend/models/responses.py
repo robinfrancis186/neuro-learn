@@ -19,16 +19,8 @@ class InteractionPoint(BaseModel):
     expected_responses: List[str]
 
 class StoryGenerationResponse(BaseModel):
-    title: str
     content: str
-    characters: List[str]
-    learning_points: List[str]
-    interaction_points: List[InteractionPoint]
-    vocabulary_words: List[str]
-    comprehension_questions: List[str]
-    adaptation_notes: str
-    estimated_duration_minutes: int
-    difficulty_level: DifficultyLevel
+    
 
 class IEPGoalProgress(BaseModel):
     goal_id: str

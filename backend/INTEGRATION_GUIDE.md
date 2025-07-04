@@ -1,35 +1,31 @@
-# NeuroLearn AI - LangChain Integration Guide
+# NeuroLearn AI - Backend Integration Guide
 
-This guide explains how to set up and run the LangChain-powered backend for NeuroLearn AI, which uses Mistral 7B with Ollama for local AI processing.
+This guide explains how to set up and run the backend for NeuroLearn AI, which uses LM Studio for local AI processing.
 
 ## Prerequisites
 
-1. Python 3.9+
-2. [Ollama](https://ollama.ai) installed on your system
-3. Virtual environment tool (e.g., `venv`)
+1. Python 3.13.5+
+
+2. Virtual environment tool (e.g., `venv`)
 
 ## Setup Instructions
 
-1. **Install Ollama and Pull Mistral Model**:
-   ```bash
-   # Install Ollama from https://ollama.ai
-   # Pull Mistral model
-   ollama pull mistral
-   ```
+1. **Create and Activate Virtual Environment**:
 
-2. **Create and Activate Virtual Environment**:
    ```bash
    cd backend
    python -m venv venv
    source venv/bin/activate  # On Windows: .\venv\Scripts\activate
    ```
 
-3. **Install Dependencies**:
+2. **Install Dependencies**:
+
    ```bash
    pip install -r requirements.txt
    ```
 
-4. **Start the FastAPI Server**:
+3. **Start the FastAPI Server**:
+
    ```bash
    uvicorn main:app --reload --host 0.0.0.0 --port 8000
    ```
@@ -37,6 +33,7 @@ This guide explains how to set up and run the LangChain-powered backend for Neur
 ## API Endpoints
 
 1. **Health Check**:
+
    - `GET /health`
    - Returns server status
 
@@ -86,11 +83,11 @@ This guide explains how to set up and run the LangChain-powered backend for Neur
 ## Performance Considerations
 
 1. **Model Loading**:
-   - First request may take longer as Mistral model is loaded into memory
+   - First request may take longer as the model is loaded into memory
    - Subsequent requests will be faster
 
 2. **Resource Usage**:
-   - Mistral 7B requires ~16GB RAM for optimal performance
+   - Ensure sufficient RAM for optimal performance
    - Consider using a smaller model if memory is constrained
 
 3. **Response Times**:
@@ -119,16 +116,15 @@ The API implements comprehensive error handling:
 
 ## ✅ Setup Complete!
 
-Your LangChain backend is now fully integrated with OpenAI and ready for use in your Flutter app!
+Your backend is now fully integrated and ready for use in your Flutter app!
 
 ## 🎯 What's Been Set Up
 
-### 1. OpenAI API Configuration
-- ✅ OpenAI API key added to `backend/.env`
-- ✅ Models configured to use `gpt-3.5-turbo` (cost-effective and powerful)
-- ✅ Backend tested and communicating with OpenAI API
+### 1. API Configuration
+- ✅ API key and model configurations are set
+- ✅ Backend tested and communicating with the AI processing unit
 
-### 2. LangChain Flows Implemented
+### 2. Flows Implemented
 
 #### Story Generation Flow
 **Path:** `Student data → Personalized prompt → LLM → Story generation`
@@ -189,11 +185,11 @@ final progressSummary = await LangChainService.instance.generateProgressSummary(
 );
 ```
 
-## 💳 OpenAI Billing Setup Required
+## 💳 Billing Setup Required
 
-The integration is working correctly, but you need to add billing to your OpenAI account:
+The integration is working correctly, but you need to add billing to your AI processing account:
 
-1. Visit [OpenAI Platform - Billing](https://platform.openai.com/account/billing)
+1. Visit the billing section of your AI processing platform
 2. Add a payment method
 3. Purchase credits or set up auto-recharge
 4. The current quota error will resolve once billing is active
@@ -201,7 +197,7 @@ The integration is working correctly, but you need to add billing to your OpenAI
 **Estimated Costs:**
 - Story Generation: ~$0.01-0.03 per story
 - Progress Summary: ~$0.02-0.05 per summary
-- GPT-3.5-turbo is very cost-effective for these use cases
+- The used model is very cost-effective for these use cases
 
 ## 🔧 Customization Options
 
@@ -303,7 +299,7 @@ class ProgressDashboard extends StatelessWidget {
 
 ## 📝 Next Steps
 
-1. ✅ Add billing to OpenAI account
+1. ✅ Add billing to your AI processing account
 2. 🔄 Test the integration with your Flutter UI
 3. 🎨 Customize prompts for your specific educational needs
 4. 📊 Implement usage analytics to track effectiveness
@@ -320,7 +316,7 @@ pip install -r requirements.txt
 
 ### OpenAI Errors
 - Check your API key in `.env`
-- Verify billing is set up on OpenAI platform
+- Verify billing is set up on the AI processing platform
 - Monitor usage limits
 
 ### Flutter Connection Issues
@@ -330,4 +326,4 @@ pip install -r requirements.txt
 
 ---
 
-Your LangChain integration is now complete and ready to provide personalized, AI-powered educational experiences for neurodivergent learners! 🎉 
+Your integration is now complete and ready to provide personalized, AI-powered educational experiences for neurodivergent learners! 🎉

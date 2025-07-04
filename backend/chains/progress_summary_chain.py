@@ -1,40 +1,16 @@
-from langchain.chains import LLMChain
-from langchain.prompts import PromptTemplate
-from langchain_community.llms import Ollama
-from langchain.schema import StrOutputParser
-from langchain.schema.runnable import RunnablePassthrough, RunnableLambda, RunnableParallel
 from typing import Dict, Any, List
 import json
 import statistics
+import httpx
 
 from models.requests import ProgressSummaryRequest
 from models.responses import ProgressSummaryResponse, IEPGoalProgress, LearningInsight
 
 class ProgressSummaryChain:
     def __init__(self):
-        self.llm = Ollama(
-            model="mistral",
-            temperature=0.2
-        )
-        
-        # Define the progress analysis prompt template
-        self.prompt_template = PromptTemplate(
-            input_variables=[
-                "student_name", "time_period", "progress_data", 
-                "learning_insights", "visual_progress_data"
-            ],
-            template=self._get_progress_prompt_template()
-        )
-        
-        # Build the chain: Data processing → Prompt → LLM → Structured output
-        self.chain = (
-            RunnableLambda(self._process_progress_data)
-            | self.prompt_template
-            | self.llm
-            | StrOutputParser()
-            | RunnableLambda(self._parse_progress_response)
-        )
-    
+        self.api_url = "http://localhost:1234/v1/chat/completions"
+        self.headers = {"Content-Type": "application/json"}
+
     def _get_progress_prompt_template(self) -> str:
         return """
 You are an expert educational progress analyst specializing in neurodivergent learners. Analyze the student's progress data and create a comprehensive progress summary for parents and educators.
@@ -111,6 +87,26 @@ Provide a comprehensive, data-driven analysis that supports both celebration and
         }
         
         return processed
+
+    async def run(self, request: ProgressSummaryRequest) -> ProgressSummaryResponse:
+        """Execute the progress summary chain"""
+        payload = {
+            "model": "gemma-3-27b-it",
+            "messages": [
+                {"role": "system", "content": self._get_progress_prompt_template()},
+                {"role": "user", "content": json.dumps(self._process_progress_data(request))}
+            ],
+            "temperature": 0.2,
+            "max_tokens": -1,
+            "stream": False
+        }
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(self.api_url, headers=self.headers, json=payload)
+            response.raise_for_status()
+            data = response.json()
+
+        return self._parse_progress_response(data.get("choices", [{}])[0].get("message", {}).get("content", ""))
     
     def _parse_progress_response(self, llm_output: str) -> ProgressSummaryResponse:
         """Parse LLM output into structured response"""
@@ -144,17 +140,17 @@ Provide a comprehensive, data-driven analysis that supports both celebration and
             
             return ProgressSummaryResponse(
                 student_name=progress_data.get("student_name", ""),
-                time_period=progress_data.get("time_period", ""),
-                overview=progress_data.get("overview", ""),
-                iep_goal_progress=iep_goals,
-                insights=insights,
-                celebration_highlights=progress_data.get("celebration_highlights", []),
-                areas_for_focus=progress_data.get("areas_for_focus", []),
-                parent_collaboration_summary=progress_data.get("parent_collaboration_summary", ""),
-                recommended_home_activities=progress_data.get("recommended_home_activities", []),
-                next_meeting_talking_points=progress_data.get("next_meeting_talking_points", []),
-                overall_progress_score=progress_data.get("overall_progress_score", 0.0),
-                visual_data=progress_data.get("visual_data", None)
+                time_period=progress_data.get("time_period"),
+                overview=progress_data.get("overview"),
+                iep_goal_progress=iep_goals if progress_data.get("iep_goal_progress") else [],
+                insights=insights if progress_data.get("insights") else [],
+                celebration_highlights=progress_data.get("celebration_highlights"),
+                areas_for_focus=progress_data.get("areas_for_focus"),
+                parent_collaboration_summary=progress_data.get("parent_collaboration_summary"),
+                recommended_home_activities=progress_data.get("recommended_home_activities"),
+                next_meeting_talking_points=progress_data.get("next_meeting_talking_points"),
+                overall_progress_score=progress_data.get("overall_progress_score"),
+                visual_data=progress_data.get("visual_data")
             )
             
         except json.JSONDecodeError:
@@ -173,7 +169,3 @@ Provide a comprehensive, data-driven analysis that supports both celebration and
                 overall_progress_score=0.0,
                 visual_data=None
             )
-    
-    async def run(self, request: ProgressSummaryRequest) -> ProgressSummaryResponse:
-        """Execute the progress summary chain"""
-        return await self.chain.ainvoke(request) 

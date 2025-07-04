@@ -1,0 +1,24 @@
+{
+  "student_name": "John Doe",
+  "age": 10,
+  "neurodivergent_traits": [
+    "ADHD", "Dyslexia"
+  ],
+  "learning_style": "visual",
+  "attention_span": "short",
+  "communication_needs": "prefers visual aids",
+  "sensory_preferences": [
+    "low noise", "bright colors"
+  ],
+  "favorite_characters": [
+    "Harry Potter", "Sherlock Holmes"
+  ],
+  "preferred_topics": [
+    "Science", "Mystery"
+  ],
+  "learning_objective": "Explain the water cycle",
+  "subject": "Geography",
+  "mood": "happy",
+  "previous_context": "Discussed the importance of water",
+  "memory_context": "Student enjoys interactive learning"
+}

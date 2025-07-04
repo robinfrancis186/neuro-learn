@@ -1,154 +1,71 @@
-from langchain.chains import LLMChain
-from langchain.prompts import PromptTemplate
-from langchain_community.llms import Ollama
-from langchain.schema import StrOutputParser
-from langchain.schema.runnable import RunnablePassthrough, RunnableLambda
-from typing import Dict, Any
+from typing import Dict, Any, Optional, List
 import json
+import httpx
 
 from models.requests import StoryGenerationRequest
-from models.responses import StoryGenerationResponse, InteractionPoint, DifficultyLevel
+from models.responses import StoryGenerationResponse, InteractionPoint
+
 
 class StoryGenerationChain:
     def __init__(self):
-        self.llm = Ollama(
-            model="mistral",
-            temperature=0.7
-        )
-        
-        # Define the personalized prompt template
-        self.prompt_template = PromptTemplate(
-            input_variables=[
-                "student_name", "age", "neurodivergent_traits", "learning_style", 
-                "attention_span", "communication_needs", "sensory_preferences",
-                "favorite_characters", "preferred_topics", "learning_objective", 
-                "subject", "mood", "previous_context", "memory_context"
-            ],
-            template=self._get_story_prompt_template()
-        )
-        
-        # Build the chain: Data processing → Prompt → LLM → Structured output
-        self.chain = (
-            RunnableLambda(self._process_student_data)
-            | self.prompt_template
-            | self.llm
-            | StrOutputParser()
-            | RunnableLambda(self._parse_story_response)
-        )
-    
+        self.api_url = "http://localhost:1234/v1/chat/completions"
+        self.headers = {"Content-Type": "application/json"}
+
     def _get_story_prompt_template(self) -> str:
         return """
 You are an expert educational content creator specializing in neurodivergent learners. Create a personalized learning story based on the following student profile and requirements.
 
 STUDENT PROFILE:
 - Name: {student_name}
-- Age: {age} years old
-- Neurodivergent traits: {neurodivergent_traits}
-- Primary learning style: {learning_style}
-- Attention span: {attention_span} minutes
-- Communication needs: {communication_needs}
-- Sensory preferences: {sensory_preferences}
-- Favorite characters: {favorite_characters}
-- Preferred topics: {preferred_topics}
-
-STORY REQUIREMENTS:
-- Learning objective: {learning_objective}
 - Subject area: {subject}
-- Story mood: {mood}
-- Previous story context: {previous_context}
-- Personal memory context: {memory_context}
-
-PERSONALIZATION GUIDELINES:
-1. Adapt language complexity to the student's age and communication needs
-2. Incorporate their favorite characters and topics naturally
-3. Respect sensory preferences (avoid overwhelming descriptions if sensitive)
-4. Design interactions that match their learning style
-5. Keep story segments within their attention span
-6. Include positive reinforcement and emotional connection points
-7. If personal memory context is provided, weave it into the educational narrative
-
-INTERACTION DESIGN:
-- Visual learners: Include picture choices, color coding, visual sequences
-- Auditory learners: Include rhythm, rhyme, sound effects, verbal responses
-- Kinesthetic learners: Include movement, gestures, hands-on activities
-- Reading/writing learners: Include word games, writing prompts, text analysis
+- Characters: {characters}
+- Memory context: {memory_context}
+{topic_to_be_reached}
 
 OUTPUT FORMAT:
 Return a JSON object with the following structure:
-{{
+{
     "title": "Engaging story title",
-    "content": "Main story content with [INTERACTION_1], [INTERACTION_2] markers",
+    "content": "Main story content",
     "characters": ["List of main characters"],
     "learning_points": ["Key educational concepts covered"],
     "interaction_points": [
-        {{
+        {
             "type": "question|choice|activity|gesture",
             "prompt": "Interaction prompt for student",
             "expected_responses": ["possible responses"]
-        }}
+        }
     ],
     "vocabulary_words": ["New vocabulary introduced"],
     "comprehension_questions": ["Assessment questions"],
     "adaptation_notes": "How to modify based on student response",
-    "estimated_duration_minutes": 15,
-    "difficulty_level": "beginner|intermediate|advanced"
-}}
+    "estimated_duration_minutes": 15
+}
 
 Create an engaging, educational story that makes learning joyful and accessible for this specific student.
 """
 
     def _process_student_data(self, request: StoryGenerationRequest) -> Dict[str, Any]:
-        """Process and format student data for the prompt"""
-        
-        processed = {
+        data = {
             "student_name": request.student_name,
-            "age": request.age,
-            "neurodivergent_traits": ", ".join(request.neurodivergent_traits) or "None specified",
-            "learning_style": request.learning_style.value,
-            "attention_span": request.attention_span,
-            "communication_needs": request.communication_needs,
-            "sensory_preferences": ", ".join(request.sensory_preferences),
-            "favorite_characters": ", ".join(request.favorite_characters) or "None specified",
-            "preferred_topics": ", ".join(request.preferred_topics) or "None specified",
-            "learning_objective": request.learning_objective,
             "subject": request.subject,
-            "mood": request.mood.value,
-            "previous_context": request.previous_context or "None",
-            "memory_context": request.memory_context or "None"
+            "characters": ", ".join(request.characters) if request.characters else "None specified",
+            "memory_context": request.memory_context or "No context provided"
         }
-        
-        return processed
-    
+        if request.topic_to_be_reached:
+            data["topic_to_be_reached"] = f"- Topic to be reached: {request.topic_to_be_reached}"
+        else:
+            data["topic_to_be_reached"] = ""
+
+        return data
+
     def _parse_story_response(self, llm_output: str) -> StoryGenerationResponse:
-        """Parse LLM output into structured response"""
+        print(f"Raw LLM output: {llm_output}")
+
         try:
-            # Try to parse as JSON
             story_data = json.loads(llm_output)
-            
-            # Convert interaction points to proper format
-            interaction_points = []
-            for interaction in story_data.get("interaction_points", []):
-                interaction_points.append(InteractionPoint(
-                    type=interaction.get("type", "question"),
-                    prompt=interaction.get("prompt", ""),
-                    expected_responses=interaction.get("expected_responses", [])
-                ))
-            
-            return StoryGenerationResponse(
-                title=story_data.get("title", "Learning Story"),
-                content=story_data.get("content", ""),
-                characters=story_data.get("characters", []),
-                learning_points=story_data.get("learning_points", []),
-                interaction_points=interaction_points,
-                vocabulary_words=story_data.get("vocabulary_words", []),
-                comprehension_questions=story_data.get("comprehension_questions", []),
-                adaptation_notes=story_data.get("adaptation_notes", ""),
-                estimated_duration_minutes=story_data.get("estimated_duration_minutes", 15),
-                difficulty_level=DifficultyLevel.BEGINNER
-            )
-            
-        except json.JSONDecodeError:
-            # Fallback for non-JSON responses
+        except json.JSONDecodeError as e:
+            print(f"JSON parsing error: {str(e)}")
             return StoryGenerationResponse(
                 title="Generated Learning Story",
                 content=llm_output,
@@ -158,10 +75,84 @@ Create an engaging, educational story that makes learning joyful and accessible 
                 vocabulary_words=[],
                 comprehension_questions=[],
                 adaptation_notes="Manual adaptation may be needed",
-                estimated_duration_minutes=15,
-                difficulty_level=DifficultyLevel.BEGINNER
+                estimated_duration_minutes=15
             )
-    
+
+        interaction_points = [
+            InteractionPoint(
+                type=item.get("type", "question"),
+                prompt=item.get("prompt", ""),
+                expected_responses=item.get("expected_responses", [])
+            )
+            for item in story_data.get("interaction_points", [])
+        ]
+
+        return StoryGenerationResponse(
+            title=story_data.get("title", "Learning Story"),
+            content=story_data.get("content", ""),
+            characters=story_data.get("characters", []),
+            learning_points=story_data.get("learning_points", []),
+            interaction_points=interaction_points,
+            vocabulary_words=story_data.get("vocabulary_words", []),
+            comprehension_questions=story_data.get("comprehension_questions", []),
+            adaptation_notes=story_data.get("adaptation_notes", ""),
+            estimated_duration_minutes=story_data.get("estimated_duration_minutes", 15)
+        )
+
     async def run(self, request: StoryGenerationRequest) -> StoryGenerationResponse:
-        """Execute the story generation chain"""
-        return await self.chain.ainvoke(request) 
+        processed_input = self._process_student_data(request)
+        payload = {
+            "model": "gemma-3-27b-it",
+            "messages": [
+                {"role": "system", "content": self._get_story_prompt_template().format(**processed_input)},
+                {"role": "user", "content": json.dumps(processed_input)}
+            ],
+            "temperature": 0.7,
+            "max_tokens": 2024,
+            "stream": False
+        }
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(self.api_url, headers=self.headers, json=payload)
+                response.raise_for_status()
+                data = response.json()
+
+                print(f"Response headers: {response.headers}")
+                print(f"Response body: {data}")
+
+                raw_content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+
+                if isinstance(raw_content, str):
+                    return self._parse_story_response(raw_content)
+                else:
+                    return StoryGenerationResponse(
+                        title="Generated Learning Story",
+                        content=str(raw_content),
+                        characters=[],
+                        learning_points=[],
+                        interaction_points=[],
+                        vocabulary_words=[],
+                        comprehension_questions=[],
+                        adaptation_notes="Manual adaptation may be needed",
+                        estimated_duration_minutes=15
+                    )
+
+        except httpx.HTTPError as e:
+            print(f"HTTP error: {str(e)}")
+        except Exception as e:
+            import traceback
+            print(f"Unexpected error: {str(e)}")
+            print(traceback.format_exc())
+
+        return StoryGenerationResponse(
+            title="Generated Learning Story",
+            content="An error occurred during story generation.",
+            characters=[],
+            learning_points=[],
+            interaction_points=[],
+            vocabulary_words=[],
+            comprehension_questions=[],
+            adaptation_notes="Manual adaptation may be needed",
+            estimated_duration_minutes=15
+        )
