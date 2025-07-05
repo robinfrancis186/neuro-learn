@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../../shared/themes/app_theme.dart';
 import '../../../../shared/widgets/animated_card.dart';
+import 'subject_story_page.dart';
 
 class LearningClassroomPage extends ConsumerStatefulWidget {
   const LearningClassroomPage({super.key});
@@ -268,20 +269,54 @@ class _LearningClassroomPageState extends ConsumerState<LearningClassroomPage> {
   }
 
   void _navigateToSubject(String subject) {
-    // TODO: Implement navigation to specific subject pages
-    // This will be implemented in future sessions as mentioned by the user
-    print('Navigate to $subject - Implementation pending');
+    // Get subject details for navigation
+    final subjectData = _getSubjectData(subject);
     
-    // Show a temporary message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$subject learning coming soon!'),
-        backgroundColor: AppTheme.primaryBlue,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SubjectStoryPage(
+          subject: subject,
+          subjectTitle: subjectData['title'] as String,
+          subjectColor: subjectData['color'] as Color,
+          subjectIcon: subjectData['icon'] as IconData,
         ),
       ),
     );
+  }
+  
+  Map<String, dynamic> _getSubjectData(String subject) {
+    switch (subject) {
+      case 'mathematics':
+        return {
+          'title': 'Mathematics',
+          'color': Colors.blue,
+          'icon': Icons.calculate,
+        };
+      case 'science':
+        return {
+          'title': 'Science',
+          'color': Colors.green,
+          'icon': Icons.science,
+        };
+      case 'reading':
+        return {
+          'title': 'Reading',
+          'color': Colors.orange,
+          'icon': Icons.menu_book,
+        };
+      case 'social_skills':
+        return {
+          'title': 'Social Skills',
+          'color': Colors.purple,
+          'icon': Icons.people,
+        };
+      default:
+        return {
+          'title': 'Learning',
+          'color': AppTheme.primaryBlue,
+          'icon': Icons.school,
+        };
+    }
   }
 } 
