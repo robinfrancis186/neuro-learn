@@ -161,6 +161,8 @@ Keep it short and friendly (about 2–4 lines). Example:
         logging.info(f"📝 Original story: {story_text}")
         logging.info(f"✨ Cleaned story: {cleaned_story}")
 
+        cleaned_story = cleaned_story.replace("×", " multiplyed by").replace("÷", " divided by ").replace("=", " equals").replace("+", " plus ").replace("-", " minus ")
+
         return StoryGenerationResponse(content=cleaned_story)
 
     except Exception as e:
