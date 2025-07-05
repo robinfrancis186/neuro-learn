@@ -5,6 +5,7 @@ import httpx
 import uvicorn
 import shutil
 import base64
+import re
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -48,10 +49,52 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Type"],
 )
 
 logging.basicConfig(level=logging.INFO)
 voice_clone_service = VoiceCloneService()
+
+
+def clean_story_text(text: str) -> str:
+    """Clean and normalize story text from encoding issues"""
+    if not text:
+        return ""
+    
+    # Fix common UTF-8 encoding issues
+    cleaned_text = text
+    
+    # Handle smart quotes and apostrophes
+    cleaned_text = cleaned_text.replace('"', '"')  # Left double quote
+    cleaned_text = cleaned_text.replace('"', '"')  # Right double quote
+    cleaned_text = cleaned_text.replace(''', "'")  # Left single quote
+    cleaned_text = cleaned_text.replace(''', "'")  # Right single quote
+    cleaned_text = cleaned_text.replace('´', "'")  # Acute accent
+    cleaned_text = cleaned_text.replace('`', "'")  # Grave accent
+    
+    # Handle em dashes and en dashes
+    cleaned_text = cleaned_text.replace('—', '-')  # Em dash
+    cleaned_text = cleaned_text.replace('–', '-')  # En dash
+    
+    # Handle ellipsis
+    cleaned_text = cleaned_text.replace('…', '...')
+    
+    # Handle common encoding artifacts
+    cleaned_text = cleaned_text.replace('â€™', "'")  # Common apostrophe encoding
+    cleaned_text = cleaned_text.replace('â€œ', '"')  # Common left quote encoding
+    cleaned_text = cleaned_text.replace('â€', '"')   # Common right quote encoding
+    cleaned_text = cleaned_text.replace('â€"', '-')  # Common dash encoding
+    cleaned_text = cleaned_text.replace('Ã¢â‚¬â„¢', "'")  # Another apostrophe variant
+    cleaned_text = cleaned_text.replace('â', "'")    # Generic â replacement
+    
+    # Remove any remaining non-printable characters except newlines and tabs
+    cleaned_text = re.sub(r'[^\x20-\x7E\n\t]', '', cleaned_text)
+    
+    # Normalize whitespace
+    cleaned_text = re.sub(r'\s+', ' ', cleaned_text)
+    cleaned_text = cleaned_text.strip()
+    
+    return cleaned_text
 
 
 @app.get("/")
@@ -112,7 +155,13 @@ Keep it short and friendly (about 2–4 lines). Example:
         if not story_text:
             raise ValueError("Empty response from LM Studio.")
 
-        return StoryGenerationResponse(content=story_text)
+        # Clean the story text to fix encoding issues
+        cleaned_story = clean_story_text(story_text)
+        
+        logging.info(f"📝 Original story: {story_text}")
+        logging.info(f"✨ Cleaned story: {cleaned_story}")
+
+        return StoryGenerationResponse(content=cleaned_story)
 
     except Exception as e:
         logging.error("🔥 Story generation error:\n")
