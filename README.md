@@ -62,7 +62,7 @@ backend/
 ### Prerequisites
 - Flutter SDK (>=3.0.0)
 - Dart SDK (>=3.0.0)
-- Python 3.8+ (for backend)
+- Python 3.11 (required for backend)
 - Chrome/Edge browser (for web development)
 
 ### Installation
@@ -78,10 +78,16 @@ backend/
    flutter pub get
    ```
 
-3. **Install backend dependencies**
+3. **Set up backend environment**
    ```bash
-   cd backend
-   pip install -r requirements.txt
+   # Make setup script executable
+   chmod +x setup.sh
+   
+   # Run setup script (creates Python 3.11 virtual environment and installs dependencies)
+   ./setup.sh
+   
+   # Activate virtual environment
+   source backend/venv/bin/activate
    ```
 
 4. **Run the application**
@@ -96,6 +102,27 @@ backend/
 
 5. **Open in browser**
    Navigate to `http://localhost:8087`
+
+### Development Environment
+
+The project uses Python 3.11 for the backend. The `setup.sh` script will:
+- Check if Python 3.11 is installed
+- Create a virtual environment using Python 3.11
+- Install all required dependencies
+- Set up the correct environment for development
+
+If Python 3.11 is not installed, you can install it using:
+```bash
+# On macOS with Homebrew
+brew install python@3.11
+
+# On Ubuntu/Debian
+sudo apt update
+sudo apt install python3.11 python3.11-venv
+
+# On Windows
+# Download Python 3.11 installer from python.org
+```
 
 ## 🎯 Core Features Deep Dive
 
