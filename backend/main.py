@@ -3,8 +3,10 @@ import json
 import logging
 import httpx
 import uvicorn
-from fastapi import FastAPI, HTTPException
+import shutil
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from typing import Dict
 
@@ -24,6 +26,12 @@ from models.enums import DifficultyLevel
 
 # Load environment variables
 load_dotenv()
+
+# Define paths for audio storage
+REFERENCE_AUDIO_PATH = os.path.join(os.path.dirname(__file__), "uploads", "reference_audio.wav")
+
+# Ensure uploads directory exists
+os.makedirs(os.path.dirname(REFERENCE_AUDIO_PATH), exist_ok=True)
 
 app = FastAPI(
     title="NeuroLearn AI API",
@@ -108,6 +116,16 @@ Keep it short and friendly (about 2–4 lines). Example:
     except Exception as e:
         logging.error("🔥 Story generation error:\n")
         raise HTTPException(status_code=500, detail=f"Story generation failed: {str(e)}")
+
+@app.post("/save-reference-audio")
+async def save_reference_audio(reference_audio: UploadFile = File(...)):
+    """Save uploaded reference audio file to backend storage"""
+    try:
+        with open(REFERENCE_AUDIO_PATH, "wb") as buffer:
+            shutil.copyfileobj(reference_audio.file, buffer)
+        return {"success": True, "message": "Reference audio saved successfully", "path": REFERENCE_AUDIO_PATH}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"success": False, "message": f"Failed to save reference audio: {str(e)}"})
 
 @app.post("/clone", response_model=VoiceCloneResponse)
 async def clone_voice(request: VoiceCloneRequest) -> VoiceCloneResponse:
