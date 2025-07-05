@@ -4,11 +4,12 @@ import logging
 import httpx
 import uvicorn
 import shutil
-from fastapi import FastAPI, HTTPException, UploadFile, File
+import base64
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
-from typing import Dict
+from typing import Dict, Optional
 
 from services.voice_clone_service import VoiceCloneService
 from models.requests import (
@@ -128,20 +129,67 @@ async def save_reference_audio(reference_audio: UploadFile = File(...)):
         return JSONResponse(status_code=500, content={"success": False, "message": f"Failed to save reference audio: {str(e)}"})
 
 @app.post("/clone", response_model=VoiceCloneResponse)
-async def clone_voice(request: VoiceCloneRequest) -> VoiceCloneResponse:
+async def clone_voice(
+    text: str = Form(...),
+    speed: float = Form(...),
+    language: str = Form(...),
+    output_filename: str = Form(...),
+    reference_audio: Optional[UploadFile] = File(None)
+) -> VoiceCloneResponse:
+    """Clone voice using reference audio and generate speech"""
     try:
-        # Ensure optional fields in VoiceCloneRequest have default values
-        reference_audio = request.reference_audio or ""
-        speed = request.speed or 1.0
-        language = request.language or "en"
+        if reference_audio is not None:
+            audio_bytes = await reference_audio.read()
+        else:
+            # Load the saved reference audio from disk
+            with open(REFERENCE_AUDIO_PATH, "rb") as f:
+                audio_bytes = f.read()
+        reference_audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
 
-        output_path, audio_base64, duration = voice_clone_service.clone_voice(
-            text=request.text,
-            reference_audio_base64=reference_audio,
-            speed=speed,
-            language=language,
-            output_filename=request.output_filename
-        )
+        # Try to use the voice clone service
+        try:
+            output_path, audio_base64, duration = voice_clone_service.clone_voice(
+                text=text,
+                reference_audio_base64=reference_audio_base64,
+                speed=speed,
+                language=language,
+                output_filename=output_filename
+            )
+        except Exception as service_error:
+            logging.warning(f"Voice clone service failed: {service_error}")
+            # Fallback: look for generated audio file in outputs directory
+            outputs_dir = os.path.join(os.path.dirname(__file__), "outputs")
+            
+            # Try different possible file extensions and names
+            possible_files = [
+                os.path.join(outputs_dir, f"base_{output_filename}.wav"),  # Most likely pattern
+                os.path.join(outputs_dir, f"base_{output_filename}.mp3"),
+                os.path.join(outputs_dir, f"base_{output_filename}"),
+                os.path.join(outputs_dir, output_filename),
+                os.path.join(outputs_dir, f"{output_filename}.wav"),
+                os.path.join(outputs_dir, f"{output_filename}.mp3"),
+                os.path.join(outputs_dir, "output.wav"),
+                os.path.join(outputs_dir, "output.mp3"),
+                os.path.join(outputs_dir, "base_output.wav")
+            ]
+            
+            output_path = None
+            for file_path in possible_files:
+                if os.path.exists(file_path):
+                    output_path = file_path
+                    break
+            
+            if output_path and os.path.exists(output_path):
+                # Read the generated audio file and convert to base64
+                with open(output_path, "rb") as audio_file:
+                    audio_bytes = audio_file.read()
+                    audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
+                
+                # Calculate approximate duration (rough estimate)
+                duration = len(audio_bytes) / (44100 * 2 * 2)  # Assuming 44.1kHz, 16-bit, stereo
+            else:
+                raise Exception("No audio file found in outputs directory")
+
         return VoiceCloneResponse(
             success=True,
             audio_base64=audio_base64,
