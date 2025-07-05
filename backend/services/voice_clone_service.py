@@ -97,11 +97,11 @@ class VoiceCloneService:
             Tuple of (output_path, audio_base64, duration)
         """
         temp_ref_audio = None
-        temp_base_audio = None
         
         try:
             # Decode reference audio
             temp_ref_audio = self.decode_audio_from_base64(reference_audio_base64)
+            print(f"✅ Reference audio decoded to: {temp_ref_audio}")
             
             # Generate base audio with default speaker
             if output_filename is None:
@@ -115,8 +115,10 @@ class VoiceCloneService:
             
             base_audio_path = os.path.join(self.output_dir, f"base_{output_filename}")
             final_output_path = os.path.join(self.output_dir, output_filename)
+            print(f"🎯 Target paths - Base: {base_audio_path}, Final: {final_output_path}")
             
             # Step 1: Generate base audio using default speaker
+            print("🔄 Step 1: Generating base audio...")
             self.base_speaker_tts.tts(
                 text=text,
                 output_path=base_audio_path,
@@ -124,21 +126,27 @@ class VoiceCloneService:
                 language=language,
                 speed=speed
             )
+            print(f"✅ Base audio generated: {os.path.exists(base_audio_path)}")
             
             # Step 2: Extract speaker embedding from reference audio
+            print("🔄 Step 2: Extracting speaker embedding...")
             reference_se = self.tone_color_converter.extract_se(
                 ref_wav_list=[temp_ref_audio],
                 se_save_path=None
             )
+            print("✅ Speaker embedding extracted")
             
             # Step 3: Load default source speaker embedding
+            print("🔄 Step 3: Loading source speaker embedding...")
             ckpt_base = os.path.join(self.base_path, 'checkpoints', 'base_speakers', 'EN')
             source_se = torch.load(
                 os.path.join(ckpt_base, 'en_default_se.pth'), 
                 map_location=self.device
             )
+            print("✅ Source speaker embedding loaded")
             
             # Step 4: Convert tone color
+            print("🔄 Step 4: Converting tone color...")
             self.tone_color_converter.convert(
                 audio_src_path=base_audio_path,
                 src_se=source_se,
@@ -146,6 +154,7 @@ class VoiceCloneService:
                 output_path=final_output_path,
                 message="NeuroLearn AI Clone"
             )
+            print(f"✅ Tone conversion completed: {os.path.exists(final_output_path)}")
             
             # Encode final audio to base64
             audio_base64 = self.encode_audio_to_base64(final_output_path)
