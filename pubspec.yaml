@@ -33,7 +33,7 @@ dependencies:
   # Audio & Voice
   flutter_tts: ^3.8.5
   speech_to_text: ^6.6.0
-  audioplayers: ^5.2.1
+  audioplayers: ^5.2.0
   record: ^5.0.4
   file_picker: ^6.1.1
   

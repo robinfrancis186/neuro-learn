@@ -416,6 +416,49 @@ class _SubjectStoryPageState extends ConsumerState<SubjectStoryPage> {
     ).fadeIn();
   }
 
+  // Helper: Call /clone API and play audio
+  Future<void> _readAloudStory() async {
+    if (_generatedStory == null || _isGenerating) return;
+    setState(() => _isGenerating = true);
+    try {
+      var uri = Uri.parse('http://localhost:8000/clone');
+      var request = http.MultipartRequest('POST', uri);
+      request.fields['text'] = _generatedStory!;
+      request.fields['speed'] = '1';
+      request.fields['language'] = 'english';
+      request.fields['output_filename'] = 'readaloud';
+      // reference_audio omitted to use backend default
+      print('Sending fields: \\${request.fields}');
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+      print('Response status: \\${response.statusCode}');
+      print('Response body: \\${response.body}');
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['audio_base64'] != null) {
+          final dataUrl = 'data:audio/wav;base64,${data['audio_base64']}';
+          final player = AudioPlayer();
+          await player.play(UrlSource(dataUrl));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to generate audio.')),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('API error: \\${response.statusCode}')),
+        );
+      }
+    } catch (e) {
+      print('Exception in _readAloudStory: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Playback error: $e')),
+      );
+    } finally {
+      setState(() => _isGenerating = false);
+    }
+  }
+
   Widget _buildStoryDisplay() {
     return AnimatedCard(
       child: Container(
@@ -520,48 +563,7 @@ class _SubjectStoryPageState extends ConsumerState<SubjectStoryPage> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: AnimatedCard(
-                    onTap: () async {
-                      if (_generatedStory == null || _isGenerating) return;
-                      setState(() => _isGenerating = true);
-                      try {
-                        final response = await http.post(
-                          Uri.parse('http://localhost:8000/clone'),
-                          headers: {'Content-Type': 'application/json'},
-                          body: json.encode({
-                            'text': _generatedStory,
-                            'speed': 1,
-                            'language': 'english',
-                            'output_filename': 'readaloud',
-                            'reference_audio': null,
-                          }),
-                        );
-                        if (response.statusCode == 200) {
-                          final data = json.decode(response.body);
-                          if (data['success'] == true && data['audio_base64'] != null) {
-                            final audioBytes = base64Decode(data['audio_base64']);
-                            final tempDir = await getTemporaryDirectory();
-                            final audioFile = File('${tempDir.path}/readaloud.wav');
-                            await audioFile.writeAsBytes(audioBytes, flush: true);
-                            final player = AudioPlayer();
-                            await player.play(DeviceFileSource(audioFile.path));
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Failed to generate audio.')),
-                            );
-                          }
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('API error: \\${response.statusCode}')),
-                          );
-                        }
-                      } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Playback error: \\${e}')),
-                        );
-                      } finally {
-                        setState(() => _isGenerating = false);
-                      }
-                    },
+                    onTap: (_generatedStory == null || _isGenerating) ? null : _readAloudStory,
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -577,7 +579,7 @@ class _SubjectStoryPageState extends ConsumerState<SubjectStoryPage> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           if (_isGenerating)
-                            SizedBox(
+                            const SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
@@ -594,7 +596,7 @@ class _SubjectStoryPageState extends ConsumerState<SubjectStoryPage> {
                             const SizedBox(width: 8),
                             Text(
                               'Read Aloud',
-                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              style: TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w600,
                               ),
